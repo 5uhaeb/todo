@@ -89,10 +89,18 @@ export default function Dashboard() {
       name: 'Todo Premium',
       description: 'Premium Upgrade',
       order_id: data.order.id,
-      handler: async function () {
-        await api.post('/payments/verify', {}, { headers });
-        alert('Premium activated');
-        init();
+      handler: async function (response) {
+        try {
+          await api.post('/payments/verify', {
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature
+          }, { headers });
+          alert('Premium activated successfully!');
+          init();
+        } catch (error) {
+          alert(error.response?.data?.message || 'Payment verification failed');
+        }
       },
       theme: { color: '#3399cc' }
     };

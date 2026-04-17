@@ -1,5 +1,6 @@
 import express from 'express';
 import Razorpay from 'razorpay';
+import crypto from 'crypto';
 import { authMiddleware } from '../middleware/auth.js';
 import { supabaseAdmin } from '../utils/supabase.js';
 
@@ -29,6 +30,17 @@ router.post('/create-order', authMiddleware, async (req, res) => {
 
 router.post('/verify', authMiddleware, async (req, res) => {
   try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    
+    // Validate signature
+    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+    hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+    const generated_signature = hmac.digest('hex');
+
+    if (generated_signature !== razorpay_signature) {
+      return res.status(400).json({ message: 'Payment verification failed: Invalid signature' });
+    }
+
     await supabaseAdmin
       .from('profiles')
       .update({ role: 'premium' })
