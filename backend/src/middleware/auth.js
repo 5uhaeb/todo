@@ -16,7 +16,7 @@ export async function authMiddleware(req, res, next) {
     
     if (error || !user) {
       console.error('Supabase auth failed:', error?.message);
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ message: 'Auth failed: ' + (error?.message || 'No user found') });
     }
     
     req.user = {
@@ -27,6 +27,6 @@ export async function authMiddleware(req, res, next) {
     next();
   } catch (error) {
     console.error('Auth Middleware Exception:', error.message);
-    return res.status(401).json({ message: 'Invalid token' });
+    return res.status(401).json({ message: 'Exception: ' + error.message });
   }
 }
