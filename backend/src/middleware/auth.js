@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import { supabaseAdmin } from '../utils/supabase.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,24 +12,21 @@ export async function authMiddleware(req, res, next) {
 
     const token = authHeader.split(' ')[1];
     
-    if (!process.env.SUPABASE_JWT_SECRET) {
-       console.error("CRITICAL: SUPABASE_JWT_SECRET is missing. Cannot verify token.");
-       return res.status(500).json({ message: 'Internal server configuration error' });
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    
+    if (error || !user) {
+      console.error('Supabase auth failed:', error?.message);
+      return res.status(401).json({ message: 'Invalid token' });
     }
-
-    const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
     
     req.user = {
-      id: decoded.sub,
-      email: decoded.email,
-      role: decoded.role
+      id: user.id,
+      email: user.email
     };
     
     next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expired' });
-    }
+    console.error('Auth Middleware Exception:', error.message);
     return res.status(401).json({ message: 'Invalid token' });
   }
 }
