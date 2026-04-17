@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: todo-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: yourdockerhub/todo-backend:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: FRONTEND_URL
+              value: "http://frontend-service"
+            - name: SUPABASE_URL
+              value: "YOUR_SUPABASE_URL"
+            - name: SUPABASE_ANON_KEY
+              value: "YOUR_SUPABASE_ANON_KEY"
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              value: "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            - name: REDIS_URL
+              value: "redis://redis-service:6379"
+            - name: RAZORPAY_KEY_ID
+              value: "YOUR_RAZORPAY_KEY_ID"
+            - name: RAZORPAY_KEY_SECRET
+              value: "YOUR_RAZORPAY_KEY_SECRET"
+            - name: SUPABASE_JWT_SECRET
+              value: "YOUR_SUPABASE_JWT_SECRET"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
