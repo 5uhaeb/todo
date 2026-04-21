@@ -89,13 +89,20 @@ export default function Dashboard() {
   async function upgradePremium() {
     try {
       const { data } = await api.post('/payments/create-order', {}, { headers: getHeaders() });
+      const isTestMode = typeof data.key === 'string' && data.key.startsWith('rzp_test_');
       const options = {
         key: data.key,
         amount: data.order.amount,
         currency: data.order.currency,
-        name: 'Taskflow Premium',
-        description: 'Unlock unlimited tasks and high priority',
+        name: isTestMode ? 'Taskflow Premium (TEST MODE)' : 'Taskflow Premium',
+        description: isTestMode
+          ? 'This is a test payment. No real money will be charged.'
+          : 'Unlock unlimited tasks and high priority',
         order_id: data.order.id,
+        notes: {
+          environment: isTestMode ? 'test' : 'live',
+          product: 'taskflow-premium'
+        },
         handler: async function (response) {
           try {
             await api.post('/payments/verify', {
