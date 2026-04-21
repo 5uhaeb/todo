@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../supabase.js';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabase.js';
 import api from '../api/axios';
+import ThemeToggle from '../components/ThemeToggle.jsx';
 
 export default function Dashboard() {
   const [session, setSession] = useState(null);
@@ -25,9 +26,7 @@ export default function Dashboard() {
     return { Authorization: `Bearer ${session.access_token}` };
   }, [session]);
 
-  useEffect(() => {
-    init();
-  }, []);
+  useEffect(() => { init(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   async function init() {
     setLoading(true);
@@ -58,10 +57,10 @@ export default function Dashboard() {
       await api.post('/todos', { title, priority }, { headers: getHeaders() });
       setTitle('');
       setPriority('normal');
-      showToast('Task added successfully');
+      showToast('Task added');
       init();
     } catch (error) {
-      showToast(error.response?.data?.message || 'Error creating task', 'error');
+      showToast(error.response?.data?.message || 'Could not create task', 'error');
     } finally {
       setAdding(false);
     }
@@ -70,10 +69,10 @@ export default function Dashboard() {
   async function toggleTodo(todo) {
     try {
       await api.put(`/todos/${todo.id}`, { completed: !todo.completed }, { headers: getHeaders() });
-      showToast(todo.completed ? 'Task reopened' : 'Task completed!');
+      showToast(todo.completed ? 'Task reopened' : 'Task completed');
       init();
     } catch (err) {
-      showToast('Failed to update task', 'error');
+      showToast('Could not update task', 'error');
     }
   }
 
@@ -83,7 +82,7 @@ export default function Dashboard() {
       showToast('Task deleted');
       init();
     } catch (err) {
-      showToast('Failed to delete task', 'error');
+      showToast('Could not delete task', 'error');
     }
   }
 
@@ -95,7 +94,7 @@ export default function Dashboard() {
         amount: data.order.amount,
         currency: data.order.currency,
         name: 'Taskflow Premium',
-        description: 'Unlock unlimited tasks & high priority',
+        description: 'Unlock unlimited tasks and high priority',
         order_id: data.order.id,
         handler: async function (response) {
           try {
@@ -104,18 +103,18 @@ export default function Dashboard() {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature
             }, { headers: getHeaders() });
-            showToast('Premium activated! 🎉');
+            showToast('Premium activated');
             init();
           } catch (error) {
             showToast(error.response?.data?.message || 'Payment verification failed', 'error');
           }
         },
-        theme: { color: '#6c63ff' }
+        theme: { color: '#0f5d3c' }
       };
       const razor = new window.Razorpay(options);
       razor.open();
     } catch (err) {
-      showToast('Failed to create order', 'error');
+      showToast('Could not create order', 'error');
     }
   }
 
@@ -140,107 +139,99 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div style={styles.loadingPage}>
-        <div style={styles.loadingSpinner} />
-        <p style={{ color: '#9ca3af', marginTop: 16 }}>Loading your tasks...</p>
+      <div className="loading-page">
+        <div className="loading-spinner" />
+        <p style={{ marginTop: 16 }}>Loading your tasks…</p>
+        <style>{loadingCss}</style>
       </div>
     );
   }
 
   return (
-    <div style={styles.page}>
-      {/* Toast */}
+    <div className="dash-page">
       {toast && (
         <div className={`toast ${toast.type === 'error' ? 'toast-error' : 'toast-success'}`}>
           {toast.message}
         </div>
       )}
 
-      {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.headerLeft}>
-          <div style={styles.logoIcon}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 11l3 3L22 4" />
-              <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-            </svg>
-          </div>
-          <span style={styles.logoName}>Taskflow</span>
+      <header className="dash-header">
+        <div className="dash-brand">
+          <span className="brand-square">T</span>
+          <span className="brand-name">Taskflow</span>
         </div>
-        <div style={styles.headerRight}>
+        <div className="dash-actions">
           <span className={`badge ${isPremium ? 'badge-premium' : 'badge-free'}`}>
-            {isPremium ? '★ Premium' : 'Free'}
+            {isPremium ? 'Premium' : 'Free'}
           </span>
-          <button id="logout-btn" className="btn btn-ghost btn-sm" onClick={logout}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            Logout
+          <ThemeToggle />
+          <button id="logout-btn" className="btn btn-sm" onClick={logout}>
+            <IconLogout /> Logout
           </button>
         </div>
       </header>
 
-      <main style={styles.main}>
-        {/* Upgrade Banner */}
+      <main className="dash-main">
         {!isPremium && (
-          <div style={styles.upgradeBanner} className="animate-fade-in">
+          <div className="card animate-fade-in upgrade-card">
             <div>
-              <h3 style={styles.upgradeTitle}>⚡ Unlock Premium</h3>
-              <p style={styles.upgradeDesc}>Get unlimited tasks, high priority, and more.</p>
+              <h3 style={{ marginBottom: 4 }}>Unlock premium</h3>
+              <p>Unlimited tasks, high priority, and more.</p>
             </div>
-            <button id="upgrade-btn" className="btn btn-premium btn-sm" onClick={upgradePremium}>
-              Upgrade — ₹99
+            <button id="upgrade-btn" className="btn btn-amber" onClick={upgradePremium}>
+              Upgrade · ₹99
             </button>
           </div>
         )}
 
-        {/* Stats Row */}
-        <div style={styles.statsRow} className="animate-fade-in">
-          <div style={styles.statCard}>
-            <span style={styles.statNum}>{stats.total}</span>
-            <span style={styles.statLabel}>Total</span>
+        <div className="stats-row animate-fade-in">
+          <div className="card-sm stat-card">
+            <span className="stat-num">{stats.total}</span>
+            <span className="label-tag">Total</span>
           </div>
-          <div style={styles.statCard}>
-            <span style={{ ...styles.statNum, color: 'var(--priority-normal)' }}>{stats.active}</span>
-            <span style={styles.statLabel}>Active</span>
+          <div className="card-sm stat-card">
+            <span className="stat-num" style={{ color: 'var(--blue)' }}>{stats.active}</span>
+            <span className="label-tag">Active</span>
           </div>
-          <div style={styles.statCard}>
-            <span style={{ ...styles.statNum, color: 'var(--success)' }}>{stats.completed}</span>
-            <span style={styles.statLabel}>Done</span>
+          <div className="card-sm stat-card">
+            <span className="stat-num" style={{ color: 'var(--green)' }}>{stats.completed}</span>
+            <span className="label-tag">Done</span>
           </div>
         </div>
 
-        {/* Add Task Form */}
-        <form onSubmit={addTodo} style={styles.addForm} className="card animate-fade-in">
-          <div style={styles.addRow}>
+        <form onSubmit={addTodo} className="card add-form animate-fade-in">
+          <div className="add-row">
             <input
               id="task-input"
               className="input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 200 }}
             />
             <select
               id="priority-select"
               className="select"
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
+              style={{ width: 130 }}
             >
               <option value="low">Low</option>
               <option value="normal">Normal</option>
               <option value="high">High</option>
             </select>
             <button id="add-task-btn" type="submit" className="btn btn-primary" disabled={adding || !title.trim()}>
-              {adding ? '...' : '+ Add'}
+              {adding ? '…' : 'Add task'}
             </button>
           </div>
         </form>
 
-        {/* Filter Tabs */}
-        <div style={styles.filterRow} className="animate-fade-in">
+        <div className="filter-row animate-fade-in">
           {['all', 'active', 'completed'].map((f) => (
             <button
               key={f}
-              className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
+              type="button"
+              className={`btn btn-sm ${filter === f ? 'btn-primary' : ''}`}
               onClick={() => setFilter(f)}
               style={{ textTransform: 'capitalize' }}
             >
@@ -249,257 +240,184 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Task List */}
-        <div style={styles.taskList}>
+        <div className="task-list">
           {filteredTodos.length === 0 ? (
-            <div style={styles.emptyState} className="animate-fade-in">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
-              <p style={styles.emptyText}>
-                {filter === 'all' ? 'No tasks yet. Add one above!' : `No ${filter} tasks.`}
+            <div className="empty-state animate-fade-in">
+              <IconCheckSquare />
+              <p>
+                {filter === 'all' ? 'No tasks yet. Add one above.' : `No ${filter} tasks.`}
               </p>
             </div>
           ) : (
             filteredTodos.map((todo, i) => (
               <div
                 key={todo.id}
-                style={{
-                  ...styles.taskCard,
-                  ...(todo.completed ? styles.taskCompleted : {}),
-                  animationDelay: `${i * 0.05}s`
-                }}
-                className="animate-slide-up"
+                className={`row-item animate-slide-up ${todo.completed ? 'task-done' : ''}`}
+                style={{ animationDelay: `${i * 0.04}s` }}
               >
-                <div style={styles.taskLeft}>
-                  <button
-                    id={`toggle-${todo.id}`}
-                    onClick={() => toggleTodo(todo)}
-                    style={{
-                      ...styles.checkbox,
-                      ...(todo.completed ? styles.checkboxDone : {}),
-                    }}
-                  >
-                    {todo.completed && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                    )}
-                  </button>
-                  <div>
-                    <span style={{
-                      ...styles.taskTitle,
-                      ...(todo.completed ? styles.taskTitleDone : {}),
-                    }}>
-                      {todo.title}
-                    </span>
-                    <span className={`badge badge-${todo.priority}`} style={{ marginLeft: 8 }}>
-                      {todo.priority}
-                    </span>
-                  </div>
+                <input
+                  id={`toggle-${todo.id}`}
+                  type="checkbox"
+                  className="checkbox"
+                  checked={todo.completed}
+                  onChange={() => toggleTodo(todo)}
+                  aria-label={`Toggle ${todo.title}`}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span className={`task-title ${todo.completed ? 'task-title-done' : ''}`}>
+                    {todo.title}
+                  </span>
+                  <span className={`badge badge-${todo.priority}`} style={{ marginLeft: 8 }}>
+                    {todo.priority}
+                  </span>
                 </div>
                 <button
                   id={`delete-${todo.id}`}
-                  className="btn btn-ghost btn-sm"
+                  type="button"
+                  className="btn btn-sm btn-ghost"
                   onClick={() => deleteTodo(todo.id)}
-                  style={{ color: 'var(--text-muted)' }}
+                  aria-label="Delete task"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                  <IconTrash />
                 </button>
               </div>
             ))
           )}
         </div>
       </main>
+
+      <style>{`
+        .dash-page {
+          min-height: 100vh;
+          max-width: 760px;
+          margin: 0 auto;
+          padding: 0 20px 60px;
+        }
+        .dash-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 18px 0 16px;
+          margin-bottom: 24px;
+          border-bottom: var(--outline-thin) solid var(--outline);
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .dash-brand { display: flex; align-items: center; gap: 12px; }
+        .brand-name { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; }
+        .dash-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        .upgrade-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+          margin-bottom: 20px;
+          background: var(--surface-2);
+        }
+
+        .stats-row {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+        .stat-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          padding: 14px;
+        }
+        .stat-num {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--ink);
+          line-height: 1;
+        }
+
+        .add-form { margin-bottom: 18px; }
+        .add-row {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .filter-row {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 14px;
+        }
+
+        .task-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .task-done { opacity: 0.65; }
+        .task-title { font-weight: 600; color: var(--ink); }
+        .task-title-done { text-decoration: line-through; color: var(--ink-mute); }
+
+        .empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          padding: 60px 20px;
+          color: var(--ink-mute);
+        }
+        ${loadingCss}
+      `}</style>
     </div>
   );
 }
 
-// ===== STYLES =====
-const styles = {
-  page: {
-    minHeight: '100vh',
-    maxWidth: '720px',
-    margin: '0 auto',
-    padding: '0 20px',
-  },
-  loadingPage: {
-    height: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingSpinner: {
-    width: '32px',
-    height: '32px',
-    border: '3px solid rgba(108,99,255,0.2)',
-    borderTopColor: '#6c63ff',
-    borderRadius: '50%',
-    animation: 'spin 0.7s linear infinite',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '20px 0',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-    marginBottom: '28px',
-  },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  logoIcon: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
-    background: 'linear-gradient(135deg, #6c63ff 0%, #a78bfa 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'white',
-    boxShadow: '0 0 20px rgba(108,99,255,0.25)',
-  },
-  logoName: {
-    fontSize: '1.25rem',
-    fontWeight: '800',
-    letterSpacing: '-0.02em',
-    background: 'linear-gradient(135deg, #f0f0f5, #a78bfa)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-  },
-  headerRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  main: {},
-  upgradeBanner: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '20px 24px',
-    borderRadius: '16px',
-    background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(249,115,22,0.08) 100%)',
-    border: '1px solid rgba(245,158,11,0.2)',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    gap: '12px',
-  },
-  upgradeTitle: {
-    fontSize: '1rem',
-    fontWeight: '700',
-    color: '#fbbf24',
-    marginBottom: '2px',
-  },
-  upgradeDesc: {
-    fontSize: '0.8125rem',
-    color: '#d97706',
-  },
-  statsRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '12px',
-    marginBottom: '24px',
-  },
-  statCard: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '16px',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: '14px',
-  },
-  statNum: {
-    fontSize: '1.5rem',
-    fontWeight: '800',
-    color: 'var(--text-primary)',
-    lineHeight: 1,
-  },
-  statLabel: {
-    fontSize: '0.7rem',
-    fontWeight: '600',
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    marginTop: '4px',
-  },
-  addForm: {
-    marginBottom: '20px',
-  },
-  addRow: {
-    display: 'flex',
-    gap: '10px',
-    flexWrap: 'wrap',
-  },
-  filterRow: {
-    display: 'flex',
-    gap: '6px',
-    marginBottom: '16px',
-  },
-  taskList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    paddingBottom: '40px',
-  },
-  taskCard: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '14px 18px',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: '14px',
-    transition: 'all 250ms ease',
-    opacity: 0,
-    animationFillMode: 'forwards',
-  },
-  taskCompleted: {
-    opacity: 0.6,
-  },
-  taskLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
-    flex: 1,
-    minWidth: 0,
-  },
-  checkbox: {
-    width: '24px',
-    height: '24px',
-    borderRadius: '8px',
-    border: '2px solid var(--border-input)',
-    background: 'transparent',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 200ms ease',
-    flexShrink: 0,
-  },
-  checkboxDone: {
-    background: 'var(--success)',
-    borderColor: 'var(--success)',
-  },
-  taskTitle: {
-    fontSize: '0.9375rem',
-    fontWeight: '500',
-    color: 'var(--text-primary)',
-  },
-  taskTitleDone: {
-    textDecoration: 'line-through',
-    color: 'var(--text-muted)',
-  },
-  emptyState: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '60px 20px',
-    gap: '16px',
-  },
-  emptyText: {
-    color: 'var(--text-muted)',
-    fontSize: '0.9375rem',
-  },
-};
+const loadingCss = `
+.loading-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+}
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--outline);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+`;
+
+function IconLogout() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
+function IconCheckSquare() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 11 12 14 22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}

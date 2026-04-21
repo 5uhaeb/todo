@@ -1,0 +1,192 @@
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabase.js';
+import ThemeToggle from '../components/ThemeToggle.jsx';
+
+/**
+ * Code-entry screen for first-time signup.
+ * The user lands here after Login.jsx calls supabase.auth.signUp().
+ * Supabase emails them a 6-digit token; they enter it here to confirm
+ * their email and create a session.
+ *
+ * Requires the Supabase project's "Confirm signup" email template to
+ * surface {{ .Token }} (see SETUP_AUTH.md for one-time setup).
+ */
+export default function VerifyCode() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState(location.state?.email || '');
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+
+  // If they refresh and lose state, let them type the email manually.
+  useEffect(() => {
+    if (!email) setInfo('Enter the email you signed up with, then the 6-digit code we sent.');
+  }, [email]);
+
+  async function handleVerify(e) {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: code.trim(),
+        type: 'signup',
+      });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      if (data?.session) {
+        navigate('/dashboard');
+      } else {
+        // Some Supabase setups return user but no session if confirmation
+        // is configured differently. Send them to sign-in either way.
+        setInfo('Account confirmed. Please sign in.');
+        setTimeout(() => navigate('/'), 1200);
+      }
+    } catch (err) {
+      setError(err.message || 'Verification failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (!email) {
+      setError('Enter your email first.');
+      return;
+    }
+    setError('');
+    setInfo('');
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
+      if (error) {
+        setError(error.message);
+      } else {
+        setInfo('A new code is on its way.');
+      }
+    } catch (err) {
+      setError(err.message || 'Could not resend code.');
+    } finally {
+      setResending(false);
+    }
+  }
+
+  return (
+    <div className="page-shell">
+      <div className="topbar">
+        <ThemeToggle />
+      </div>
+
+      <div className="verify-wrap animate-fade-in">
+        <div className="brand-row">
+          <span className="brand-square">T</span>
+          <h1 className="brand-title">Verify your email</h1>
+        </div>
+        <p className="brand-subtitle">
+          We sent a 6-digit code to <strong>{email || 'your inbox'}</strong>.
+          Enter it below to finish setting up your account.
+        </p>
+
+        <div className="card verify-card">
+          {error && <div className="notice notice-error" role="alert">{error}</div>}
+          {info && <div className="notice notice-info">{info}</div>}
+
+          <form onSubmit={handleVerify} className="stack">
+            {!location.state?.email && (
+              <div>
+                <label htmlFor="verify-email" className="label-tag">Email</label>
+                <input
+                  id="verify-email"
+                  type="email"
+                  className="input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  style={{ marginTop: 4 }}
+                />
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="verify-code" className="label-tag">6-digit code</label>
+              <input
+                id="verify-code"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="input input-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                required
+                style={{ marginTop: 4 }}
+                autoFocus
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary btn-lg btn-full"
+              disabled={loading || code.length !== 6}
+            >
+              {loading ? 'Verifying…' : 'Verify and continue'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => navigate('/')}
+            >
+              Back to sign in
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={handleResend}
+              disabled={resending}
+            >
+              {resending ? 'Sending…' : 'Resend code'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .page-shell {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 20px;
+        }
+        .topbar {
+          width: 100%;
+          max-width: 720px;
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 24px;
+        }
+        .verify-wrap { width: 100%; max-width: 460px; margin: 24px auto 0; text-align: center; }
+        .brand-row { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .brand-title { font-size: 1.5rem; }
+        .brand-subtitle { color: var(--ink-soft); font-size: 0.95rem; margin: 0 0 24px; }
+        .verify-card { text-align: left; padding: 24px; }
+      `}</style>
+    </div>
+  );
+}

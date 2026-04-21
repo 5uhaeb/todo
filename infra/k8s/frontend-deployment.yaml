@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: yourdockerhub/todo-frontend:latest
+          image: todo-frontend:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 80
           resources:
