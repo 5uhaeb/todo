@@ -13,9 +13,36 @@ export default function AuthCallback() {
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId;
+    let subscription;
 
     async function bounce() {
-      // Give the supabase client a tick to parse the URL hash.
+      const url = new URL(window.location.href);
+      const hashParams = new URLSearchParams((url.hash || '').replace(/^#/, ''));
+      const providerError =
+        url.searchParams.get('error_description') ||
+        url.searchParams.get('error') ||
+        hashParams.get('error_description') ||
+        hashParams.get('error');
+
+      if (providerError) {
+        setError(decodeURIComponent(providerError.replace(/\+/g, ' ')));
+        return;
+      }
+
+      // Some Supabase OAuth flows return ?code=... and require manual exchange.
+      const authCode = url.searchParams.get('code');
+      if (authCode) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
+        if (cancelled) return;
+        if (exchangeError) {
+          setError(exchangeError.message);
+          return;
+        }
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+
       const { data, error } = await supabase.auth.getSession();
       if (cancelled) return;
       if (error) {
@@ -26,26 +53,32 @@ export default function AuthCallback() {
         navigate('/dashboard', { replace: true });
         return;
       }
-      // No session yet; listen for the next change.
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      // No session yet; listen for the next auth change.
+      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session) {
-          sub.subscription.unsubscribe();
+          authListener.subscription.unsubscribe();
           navigate('/dashboard', { replace: true });
         }
       });
-      // Safety net: bail to login after 5s of no session.
-      setTimeout(() => {
+      subscription = authListener.subscription;
+
+      // Safety net: bail to login after a short wait.
+      timeoutId = setTimeout(() => {
         if (cancelled) return;
-        sub.subscription.unsubscribe();
+        if (subscription) subscription.unsubscribe();
         if (!data.session) {
           setError('Sign-in did not complete. Please try again.');
           setTimeout(() => navigate('/', { replace: true }), 1500);
         }
-      }, 5000);
+      }, 8000);
     }
 
     bounce();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (subscription) subscription.unsubscribe();
+    };
   }, [navigate]);
 
   return (
