@@ -166,7 +166,13 @@ export default function Login() {
               id="login-toggle"
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => { setMode(isSignUp ? 'signin' : 'signup'); setError(''); }}
+              onClick={() => {
+                const nextMode = isSignUp ? 'signin' : 'signup';
+                setMode(nextMode);
+                setEmail('');
+                setPassword('');
+                setError('');
+              }}
             >
               {isSignUp
                 ? 'Already have an account? Sign in'

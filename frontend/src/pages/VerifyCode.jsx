@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 
+const OTP_LENGTH = 8;
+
 /**
  * Code-entry screen for first-time signup.
  * The user lands here after Login.jsx calls supabase.auth.signUp().
- * Supabase emails them a 6-digit token; they enter it here to confirm
+ * Supabase emails them a token; they enter it here to confirm
  * their email and create a session.
  *
  * Requires the Supabase project's "Confirm signup" email template to
@@ -43,7 +45,7 @@ export default function VerifyCode() {
 
   // If they refresh and lose state, let them type the email manually.
   useEffect(() => {
-    if (!email) setInfo('Enter the email you signed up with, then the 6-digit code we sent.');
+    if (!email) setInfo(`Enter the email you signed up with, then the ${OTP_LENGTH}-digit code we sent.`);
   }, [email]);
 
   async function handleVerify(e) {
@@ -120,7 +122,7 @@ export default function VerifyCode() {
           <h1 className="brand-title">Verify your email</h1>
         </div>
         <p className="brand-subtitle">
-          We sent a 6-digit code to <strong>{email || 'your inbox'}</strong>.
+          We sent a {OTP_LENGTH}-digit code to <strong>{email || 'your inbox'}</strong>.
           Enter it below to {isOAuthVerify ? 'finish Google sign-in' : 'finish setting up your account'}.
         </p>
 
@@ -146,7 +148,7 @@ export default function VerifyCode() {
             )}
 
             <div>
-              <label htmlFor="verify-code" className="label-tag">6-digit code</label>
+              <label htmlFor="verify-code" className="label-tag">{OTP_LENGTH}-digit code</label>
               <input
                 id="verify-code"
                 type="text"
@@ -154,8 +156,8 @@ export default function VerifyCode() {
                 pattern="[0-9]*"
                 className="input input-code"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
+                placeholder="00000000"
                 required
                 style={{ marginTop: 4 }}
                 autoFocus
@@ -165,7 +167,7 @@ export default function VerifyCode() {
             <button
               type="submit"
               className="btn btn-primary btn-lg btn-full"
-              disabled={loading || code.length !== 6}
+              disabled={loading || code.length !== OTP_LENGTH}
             >
               {loading ? 'Verifying...' : 'Verify and continue'}
             </button>
