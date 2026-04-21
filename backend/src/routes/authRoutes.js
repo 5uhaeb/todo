@@ -28,10 +28,10 @@ router.get('/me', authMiddleware, async (req, res) => {
         .single();
 
       if (insertError) return res.status(400).json({ message: insertError.message });
-      return res.json({ user: req.user, profile: inserted });
+      return res.json({ user: req.user, profile: inserted, created: true });
     }
 
-    res.json({ user: req.user, profile });
+    res.json({ user: req.user, profile, created: false });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

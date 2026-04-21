@@ -15,8 +15,15 @@ import ThemeToggle from '../components/ThemeToggle.jsx';
 export default function VerifyCode() {
   const location = useLocation();
   const navigate = useNavigate();
+  const stateVerifyType = location.state?.verifyType;
+  const stateSource = location.state?.source;
+  const storedVerifyType = typeof window !== 'undefined' ? sessionStorage.getItem('verify_type') : null;
+  const storedSource = typeof window !== 'undefined' ? sessionStorage.getItem('verify_source') : null;
+  const storedEmail = typeof window !== 'undefined' ? sessionStorage.getItem('verify_email') : null;
+  const verifyType = stateVerifyType || storedVerifyType || 'signup';
+  const isOAuthVerify = (stateSource || storedSource) === 'oauth';
 
-  const [email, setEmail] = useState(location.state?.email || '');
+  const [email, setEmail] = useState(location.state?.email || storedEmail || '');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -37,13 +44,20 @@ export default function VerifyCode() {
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: code.trim(),
-        type: 'signup',
+        type: verifyType,
       });
       if (error) {
         setError(error.message);
         return;
       }
       if (data?.session) {
+        try {
+          sessionStorage.removeItem('verify_type');
+          sessionStorage.removeItem('verify_source');
+          sessionStorage.removeItem('verify_email');
+        } catch (e) {
+          // ignore storage failures
+        }
         navigate('/dashboard');
       } else {
         // Some Supabase setups return user but no session if confirmation
@@ -68,7 +82,7 @@ export default function VerifyCode() {
     setResending(true);
     try {
       const { error } = await supabase.auth.resend({
-        type: 'signup',
+        type: verifyType,
         email,
       });
       if (error) {
@@ -96,7 +110,7 @@ export default function VerifyCode() {
         </div>
         <p className="brand-subtitle">
           We sent a 6-digit code to <strong>{email || 'your inbox'}</strong>.
-          Enter it below to finish setting up your account.
+          Enter it below to {isOAuthVerify ? 'finish Google sign-in' : 'finish setting up your account'}.
         </p>
 
         <div className="card verify-card">
@@ -150,7 +164,16 @@ export default function VerifyCode() {
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => navigate('/')}
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem('verify_type');
+                  sessionStorage.removeItem('verify_source');
+                  sessionStorage.removeItem('verify_email');
+                } catch (e) {
+                  // ignore storage failures
+                }
+                navigate('/');
+              }}
             >
               Back to sign in
             </button>

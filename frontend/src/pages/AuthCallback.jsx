@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
+import api from '../api/axios.js';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -41,6 +42,51 @@ export default function AuthCallback() {
       }
 
       if (data?.session) {
+        const provider = data.session.user?.app_metadata?.provider;
+        try {
+          const me = await api.get('/auth/me', {
+            headers: { Authorization: `Bearer ${data.session.access_token}` },
+          });
+          const isFirstOAuthLogin = provider === 'google' && me?.data?.created;
+
+          if (isFirstOAuthLogin) {
+            const email = data.session.user?.email;
+            if (!email) throw new Error('No email found on your Google account.');
+
+            const { error: otpError } = await supabase.auth.signInWithOtp({
+              email,
+              options: {
+                shouldCreateUser: false,
+              },
+            });
+            if (otpError) throw otpError;
+
+            await supabase.auth.signOut();
+            try {
+              sessionStorage.setItem('verify_type', 'email');
+              sessionStorage.setItem('verify_source', 'oauth');
+              sessionStorage.setItem('verify_email', email);
+            } catch (e) {
+              // ignore storage failures
+            }
+            navigate('/verify', {
+              replace: true,
+              state: {
+                email,
+                verifyType: 'email',
+                source: 'oauth',
+              },
+            });
+            return;
+          }
+        } catch (flowError) {
+          if (isMounted) {
+            setError(flowError.message || 'Could not start email verification.');
+          }
+          redirectTimer = setTimeout(() => navigate('/', { replace: true }), 2200);
+          return;
+        }
+
         navigate('/dashboard', { replace: true });
         return;
       }
