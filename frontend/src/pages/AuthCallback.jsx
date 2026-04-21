@@ -28,16 +28,7 @@ export default function AuthCallback() {
         return;
       }
 
-      // In browser clients, Supabase may already auto-detect/exchange callback codes.
-      // Only exchange manually when there is a code and no existing session.
-      let { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        if (isMounted) setError(sessionError.message || 'Could not load session.');
-        redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
-        return;
-      }
-
-      if (!data?.session && code) {
+      if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
           const rawMessage = exchangeError.message || 'Could not complete sign-in.';
@@ -53,9 +44,13 @@ export default function AuthCallback() {
           return;
         }
         window.history.replaceState({}, document.title, '/auth/callback');
+      }
 
-        const next = await supabase.auth.getSession();
-        data = next.data;
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        if (isMounted) setError(sessionError.message || 'Could not load session.');
+        redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
+        return;
       }
 
       if (data?.session) {
