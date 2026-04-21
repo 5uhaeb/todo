@@ -13,66 +13,51 @@ export default function AuthCallback() {
 
     let isMounted = true;
     let redirectTimer;
+    let authSubscription;
+
+    function goToDashboard() {
+      navigate('/dashboard', { replace: true });
+    }
+
+    function fail(message, err) {
+      if (err) console.error('OAuth callback failed', err);
+      if (isMounted) setError(message);
+      redirectTimer = setTimeout(() => navigate('/', { replace: true }), 2200);
+    }
 
     async function run() {
       const search = new URLSearchParams(window.location.search);
       const errorParam = search.get('error');
       const errorDescription = search.get('error_description');
-      const code = search.get('code');
 
       if (errorParam || errorDescription) {
-        const rawMessage = errorDescription || errorParam || 'OAuth sign-in failed.';
-        const looksLikeGoogleAuthCode = /^4\/0[a-zA-Z0-9._-]+/.test(rawMessage);
-        const message = looksLikeGoogleAuthCode
-          ? 'Google sign-in code was rejected. Please try signing in again.'
-          : rawMessage;
-        if (isMounted) setError(message);
-        redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
+        fail(errorDescription || errorParam || 'OAuth sign-in failed.');
         return;
-      }
-
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) {
-          console.error('OAuth exchangeCodeForSession failed', exchangeError);
-          const rawMessage = exchangeError.message || 'Could not complete sign-in.';
-          const looksLikeGoogleAuthCode = /^4\/0[a-zA-Z0-9._-]+/.test(rawMessage);
-          if (isMounted) {
-            setError(
-              looksLikeGoogleAuthCode
-                ? 'Google sign-in code was rejected. Please try again.'
-                : rawMessage
-            );
-          }
-          redirectTimer = setTimeout(() => navigate('/', { replace: true }), 2200);
-          return;
-        }
-        window.history.replaceState({}, document.title, '/auth/callback');
       }
 
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
-        console.error('OAuth getSession failed after code exchange', sessionError);
-        if (isMounted) setError(sessionError.message || 'Could not load session.');
-        redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
+        fail(sessionError.message || 'Could not load session.', sessionError);
         return;
       }
 
       if (data?.session) {
-        const user = data.session.user;
-        const provider = user?.app_metadata?.provider;
-
-        if (provider && provider !== 'email') {
-          navigate('/dashboard', { replace: true });
-          return;
-        }
-
-        navigate('/dashboard', { replace: true });
+        window.history.replaceState({}, document.title, '/auth/callback');
+        goToDashboard();
         return;
       }
 
-      if (isMounted) setError('Sign-in did not create a session. Please try again.');
-      redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
+      const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+          window.history.replaceState({}, document.title, '/auth/callback');
+          goToDashboard();
+        }
+      });
+      authSubscription = listener.subscription;
+
+      redirectTimer = setTimeout(() => {
+        fail('Sign-in did not create a session. Please try again.');
+      }, 3500);
     }
 
     run();
@@ -80,6 +65,7 @@ export default function AuthCallback() {
     return () => {
       isMounted = false;
       if (redirectTimer) clearTimeout(redirectTimer);
+      if (authSubscription) authSubscription.unsubscribe();
     };
   }, [navigate]);
 
