@@ -19,11 +19,15 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
+      const cleanEmail = email.trim().toLowerCase();
+
       if (isSignUp) {
+        await supabase.auth.signOut();
+
         // Sign up. Supabase sends an email containing a 6-digit code
         // (provided the "Confirm signup" email template exposes {{ .Token }}).
-        const { error } = await supabase.auth.signUp({
-          email,
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
           password,
           options: {
             emailRedirectTo: window.location.origin + '/auth/callback',
@@ -33,10 +37,21 @@ export default function Login() {
           setError(error.message);
           return;
         }
+        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setError('An account already exists for this email. Please sign in instead.');
+          return;
+        }
+        try {
+          sessionStorage.setItem('verify_type', 'signup');
+          sessionStorage.setItem('verify_email', cleanEmail);
+          sessionStorage.removeItem('verify_source');
+        } catch (e) {
+          // ignore storage failures
+        }
         // Move to the code-entry screen. Pass email through location state.
-        navigate('/verify', { state: { email } });
+        navigate('/verify', { state: { email: cleanEmail, verifyType: 'signup' } });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (error) {
           setError(error.message);
           return;

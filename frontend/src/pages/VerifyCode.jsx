@@ -31,6 +31,8 @@ export default function VerifyCode() {
   const [info, setInfo] = useState('');
 
   useEffect(() => {
+    if (verifyType === 'signup') return;
+
     supabase.auth.getUser().then(({ data }) => {
       const provider = data.user?.app_metadata?.provider;
       if (provider && provider !== 'email') {
