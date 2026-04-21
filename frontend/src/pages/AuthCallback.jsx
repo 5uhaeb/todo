@@ -2,82 +2,58 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 
-/**
- * OAuth landing page. Supabase appends the access token to the URL
- * fragment after a Google sign-in; the JS client picks it up automatically.
- * We just wait for a session and redirect.
- */
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
-    let timeoutId;
-    let subscription;
+    let isMounted = true;
+    let redirectTimer;
 
-    async function bounce() {
+    async function run() {
       const url = new URL(window.location.href);
-      const hashParams = new URLSearchParams((url.hash || '').replace(/^#/, ''));
-      const providerError =
-        url.searchParams.get('error_description') ||
-        url.searchParams.get('error') ||
-        hashParams.get('error_description') ||
-        hashParams.get('error');
+      const errorParam = url.searchParams.get('error');
+      const errorDescription = url.searchParams.get('error_description');
 
-      if (providerError) {
-        setError(decodeURIComponent(providerError.replace(/\+/g, ' ')));
+      if (errorParam || errorDescription) {
+        const message = errorDescription || errorParam || 'OAuth sign-in failed.';
+        if (isMounted) setError(message);
+        redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
         return;
       }
 
-      // Some Supabase OAuth flows return ?code=... and require manual exchange.
-      const authCode = url.searchParams.get('code');
-      if (authCode) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
-        if (cancelled) return;
+      const code = url.searchParams.get('code');
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
-          setError(exchangeError.message);
+          if (isMounted) setError(exchangeError.message || 'Could not complete sign-in.');
+          redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
           return;
         }
+        window.history.replaceState({}, document.title, '/auth/callback');
+      }
+
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        if (isMounted) setError(sessionError.message || 'Could not load session.');
+        redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
+        return;
+      }
+
+      if (data?.session) {
         navigate('/dashboard', { replace: true });
         return;
       }
 
-      const { data, error } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (error) {
-        setError(error.message);
-        return;
-      }
-      if (data.session) {
-        navigate('/dashboard', { replace: true });
-        return;
-      }
-      // No session yet; listen for the next auth change.
-      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) {
-          authListener.subscription.unsubscribe();
-          navigate('/dashboard', { replace: true });
-        }
-      });
-      subscription = authListener.subscription;
-
-      // Safety net: bail to login after a short wait.
-      timeoutId = setTimeout(() => {
-        if (cancelled) return;
-        if (subscription) subscription.unsubscribe();
-        if (!data.session) {
-          setError('Sign-in did not complete. Please try again.');
-          setTimeout(() => navigate('/', { replace: true }), 1500);
-        }
-      }, 8000);
+      if (isMounted) setError('Sign-in did not create a session. Please try again.');
+      redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
     }
 
-    bounce();
+    run();
+
     return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-      if (subscription) subscription.unsubscribe();
+      isMounted = false;
+      if (redirectTimer) clearTimeout(redirectTimer);
     };
   }, [navigate]);
 
