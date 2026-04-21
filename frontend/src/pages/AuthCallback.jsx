@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 import api from '../api/axios.js';
@@ -6,16 +6,20 @@ import api from '../api/axios.js';
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     let isMounted = true;
     let redirectTimer;
 
     async function run() {
-      const url = new URL(window.location.href);
-      const errorParam = url.searchParams.get('error');
-      const errorDescription = url.searchParams.get('error_description');
-      const code = url.searchParams.get('code');
+      const search = new URLSearchParams(window.location.search);
+      const errorParam = search.get('error');
+      const errorDescription = search.get('error_description');
+      const code = search.get('code');
 
       if (errorParam || errorDescription) {
         const rawMessage = errorDescription || errorParam || 'OAuth sign-in failed.';
@@ -31,6 +35,7 @@ export default function AuthCallback() {
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
+          console.error('OAuth exchangeCodeForSession failed', exchangeError);
           const rawMessage = exchangeError.message || 'Could not complete sign-in.';
           const looksLikeGoogleAuthCode = /^4\/0[a-zA-Z0-9._-]+/.test(rawMessage);
           if (isMounted) {
@@ -48,6 +53,7 @@ export default function AuthCallback() {
 
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
+        console.error('OAuth getSession failed after code exchange', sessionError);
         if (isMounted) setError(sessionError.message || 'Could not load session.');
         redirectTimer = setTimeout(() => navigate('/', { replace: true }), 1800);
         return;
