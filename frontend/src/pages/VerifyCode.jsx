@@ -142,7 +142,7 @@ export default function VerifyCode() {
               className="btn btn-primary btn-lg btn-full"
               disabled={loading || code.length !== 6}
             >
-              {loading ? 'Verifying…' : 'Verify and continue'}
+              {loading ? 'Verifying...' : 'Verify and continue'}
             </button>
           </form>
 
@@ -160,7 +160,7 @@ export default function VerifyCode() {
               onClick={handleResend}
               disabled={resending}
             >
-              {resending ? 'Sending…' : 'Resend code'}
+              {resending ? 'Sending...' : 'Resend code'}
             </button>
           </div>
         </div>

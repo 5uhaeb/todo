@@ -97,7 +97,7 @@ export default function Login() {
             style={{ marginBottom: 12 }}
           >
             <GoogleMark />
-            {googleLoading ? 'Redirecting…' : 'Continue with Google'}
+            {googleLoading ? 'Redirecting...' : 'Continue with Google'}
           </button>
 
           <div className="divider">
@@ -142,7 +142,7 @@ export default function Login() {
               className="btn btn-primary btn-lg btn-full"
               disabled={loading}
             >
-              {loading ? 'Working…' : isSignUp ? 'Create account' : 'Sign in'}
+              {loading ? 'Working...' : isSignUp ? 'Create account' : 'Sign in'}
             </button>
           </form>
 
@@ -160,7 +160,7 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="label-tag footer-tag">Secure · fast · opinionated</p>
+        <p className="label-tag footer-tag">Secure - fast - opinionated</p>
       </div>
 
       <style>{`

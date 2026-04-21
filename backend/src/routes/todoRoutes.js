@@ -9,7 +9,7 @@ function cacheKey(userId) {
   return `todos:${userId}`;
 }
 
-// Cache helpers — never fail the request because Redis is sad.
+// Cache helpers; never fail the request because Redis is unavailable.
 async function cacheGet(key) {
   try { return await redis.get(key); }
   catch (err) { console.warn('redis.get failed, falling through to DB:', err.message); return null; }

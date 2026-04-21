@@ -26,7 +26,7 @@ export default function AuthCallback() {
         navigate('/dashboard', { replace: true });
         return;
       }
-      // No session yet — listen for the next change.
+      // No session yet; listen for the next change.
       const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session) {
           sub.subscription.unsubscribe();
@@ -60,7 +60,7 @@ export default function AuthCallback() {
           </>
         ) : (
           <>
-            <h2 style={{ marginBottom: 8 }}>Signing you in…</h2>
+            <h2 style={{ marginBottom: 8 }}>Signing you in...</h2>
             <p>Hang tight, finishing up.</p>
           </>
         )}

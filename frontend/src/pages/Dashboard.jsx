@@ -141,7 +141,7 @@ export default function Dashboard() {
     return (
       <div className="loading-page">
         <div className="loading-spinner" />
-        <p style={{ marginTop: 16 }}>Loading your tasks…</p>
+        <p style={{ marginTop: 16 }}>Loading your tasks...</p>
         <style>{loadingCss}</style>
       </div>
     );
@@ -179,7 +179,7 @@ export default function Dashboard() {
               <p>Unlimited tasks, high priority, and more.</p>
             </div>
             <button id="upgrade-btn" className="btn btn-amber" onClick={upgradePremium}>
-              Upgrade · ₹99
+              Upgrade - Rs 99
             </button>
           </div>
         )}
@@ -221,7 +221,7 @@ export default function Dashboard() {
               <option value="high">High</option>
             </select>
             <button id="add-task-btn" type="submit" className="btn btn-primary" disabled={adding || !title.trim()}>
-              {adding ? '…' : 'Add task'}
+              {adding ? '...' : 'Add task'}
             </button>
           </div>
         </form>
