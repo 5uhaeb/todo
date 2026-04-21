@@ -109,7 +109,7 @@ export default function Dashboard() {
             showToast(error.response?.data?.message || 'Payment verification failed', 'error');
           }
         },
-        theme: { color: '#0f5d3c' }
+        theme: { color: '#ea7439' }
       };
       const razor = new window.Razorpay(options);
       razor.open();
@@ -421,3 +421,4 @@ function IconCheckSquare() {
     </svg>
   );
 }
+

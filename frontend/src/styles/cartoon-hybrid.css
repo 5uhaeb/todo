@@ -16,19 +16,19 @@
   color-scheme: light;
 
   /* Surfaces — warm stone, never pure white */
-  --bg:        #efe7d6;   /* page background */
-  --surface:   #faf5ea;   /* card fills */
-  --surface-2: #e8dfc9;   /* muted panels */
-  --surface-3: #dbcfb1;   /* hover/active */
+  --bg:        #f6f3ea;   /* page background */
+  --surface:   #dfd8c4;   /* card fills */
+  --surface-2: #d7cfbb;   /* muted panels */
+  --surface-3: #ccc3ad;   /* hover/active */
 
   /* Ink */
-  --ink:       #1c1a12;
-  --ink-soft:  #3b382a;
-  --ink-mute:  #6b6649;
+  --ink:       #202124;
+  --ink-soft:  #3a3a39;
+  --ink-mute:  #61605d;
 
   /* Outlines & shadows — the cartoon signature */
-  --outline:        #1c1a12;
-  --outline-strong: #1c1a12;
+  --outline:        #202124;
+  --outline-strong: #202124;
   --outline-w:      2.5px;
   --outline-thin:   2px;
   --shadow-lg:      5px 5px 0 0 var(--outline);
@@ -38,14 +38,14 @@
   --shadow-pressed: 1px 1px 0 0 var(--outline);
 
   /* Accents — forest + amber + terracotta + deep blue */
-  --green:      #0f5d3c;  /* forest — primary CTA */
-  --green-ink:  #053e25;
-  --amber:      #d68a1a;  /* warm gold */
-  --amber-ink:  #6b4300;
-  --terra:      #c54a28;  /* terracotta — destructive / accent */
-  --terra-ink:  #7a2612;
-  --blue:       #1a3a6e;  /* deep navy blue */
-  --blue-ink:   #0c2145;
+  --green:      #ea7439;  /* forest — primary CTA */
+  --green-ink:  #2a1508;
+  --amber:      #f08a4d;  /* warm gold */
+  --amber-ink:  #2f1809;
+  --terra:      #ea7439;  /* terracotta — destructive / accent */
+  --terra-ink:  #2a1508;
+  --blue:       #202124;  /* deep navy blue */
+  --blue-ink:   #f6f3ea;
 
   /* Aliases so existing .btn-primary still works (maps to forest green) */
   --primary:     var(--green);
@@ -57,8 +57,8 @@
   --priority-high:   var(--terra);
 
   /* Inputs */
-  --input-bg: #ffffff;
-  --ring:     0 0 0 3px rgba(26, 58, 110, 0.35); /* blue focus ring */
+  --input-bg: #f7f4ec;
+  --ring:     0 0 0 3px rgba(234, 116, 57, 0.35); /* blue focus ring */
 
   /* Radii */
   --r-sm: 8px;
@@ -75,18 +75,18 @@
 .dark {
   color-scheme: dark;
 
-  --bg:        #0d1812;   /* deep forest */
-  --surface:   #24382c;   /* cards — distinctly lighter than bg */
-  --surface-2: #1a2820;
-  --surface-3: #324d3d;
+  --bg:        #202124;   /* deep forest */
+  --surface:   #2b2c2f;   /* cards — distinctly lighter than bg */
+  --surface-2: #333439;
+  --surface-3: #3f4147;
 
-  --ink:       #ece4cc;   /* warm cream */
-  --ink-soft:  #c0b99e;
-  --ink-mute:  #8a856b;
+  --ink:       #f6f3ea;   /* warm cream */
+  --ink-soft:  #e3ddce;
+  --ink-mute:  #bcb7ac;
 
   /* Softer outlines in dark — cards separate via lightness, not bright borders */
-  --outline:        #3a5345;
-  --outline-strong: #5a7a66;
+  --outline:        #56585e;
+  --outline-strong: #74777f;
   --outline-w:      1.5px;
   --outline-thin:   1px;
   --shadow-lg:      4px 4px 0 0 rgba(0,0,0,0.55);
@@ -95,14 +95,14 @@
   --shadow-xs:      1px 1px 0 0 rgba(0,0,0,0.40);
   --shadow-pressed: 1px 1px 0 0 rgba(0,0,0,0.30);
 
-  --green:      #3aa879;
-  --green-ink:  #caf1dd;
-  --amber:      #e8a83f;
-  --amber-ink:  #ffecc4;
-  --terra:      #e07856;
-  --terra-ink:  #ffd8ca;
-  --blue:       #6ea3ff;
-  --blue-ink:   #d6e3ff;
+  --green:      #ea7439;
+  --green-ink:  #fff0e8;
+  --amber:      #f08a4d;
+  --amber-ink:  #fff4ed;
+  --terra:      #ea7439;
+  --terra-ink:  #fff0e8;
+  --blue:       #505259;
+  --blue-ink:   #f6f3ea;
 
   --primary:     var(--green);
   --primary-ink: var(--green-ink);
@@ -111,8 +111,8 @@
   --priority-normal: var(--blue);
   --priority-high:   var(--terra);
 
-  --input-bg: #1a2820;
-  --ring:     0 0 0 3px rgba(110, 163, 255, 0.4);
+  --input-bg: #333439;
+  --ring:     0 0 0 3px rgba(240, 138, 77, 0.45);
 }
 
 
@@ -241,10 +241,10 @@ a:hover { text-decoration: underline; }
 
 /* Google sign-in button — white with G mark on left */
 .btn-google {
-  background: #ffffff;
-  color: #1c1a12;
+  background: #f7f4ec;
+  color: #202124;
 }
-.dark .btn-google { background: #f7f3e8; color: #1c1a12; }
+.dark .btn-google { background: #f7f3e8; color: #202124; }
 
 /* Chips — pills for tags / badges */
 .chip {
@@ -535,3 +535,4 @@ a:hover { text-decoration: underline; }
   .card { padding: 16px; }
   h1    { font-size: 1.5rem; }
 }
+
