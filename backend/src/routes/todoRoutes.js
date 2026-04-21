@@ -9,10 +9,24 @@ function cacheKey(userId) {
   return `todos:${userId}`;
 }
 
+// Cache helpers — never fail the request because Redis is sad.
+async function cacheGet(key) {
+  try { return await redis.get(key); }
+  catch (err) { console.warn('redis.get failed, falling through to DB:', err.message); return null; }
+}
+async function cacheSet(key, value, ttlSec = 60) {
+  try { await redis.set(key, value, 'EX', ttlSec); }
+  catch (err) { console.warn('redis.set failed (ignored):', err.message); }
+}
+async function cacheDel(key) {
+  try { await redis.del(key); }
+  catch (err) { console.warn('redis.del failed (ignored):', err.message); }
+}
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const key = cacheKey(req.user.id);
-    const cached = await redis.get(key);
+    const cached = await cacheGet(key);
 
     if (cached) {
       return res.json({ source: 'cache', todos: JSON.parse(cached) });
@@ -26,7 +40,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
     if (error) return res.status(400).json({ message: error.message });
 
-    await redis.set(key, JSON.stringify(data), 'EX', 60);
+    await cacheSet(key, JSON.stringify(data));
     res.json({ source: 'db', todos: data });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -72,7 +86,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     if (error) return res.status(400).json({ message: error.message });
 
-    await redis.del(cacheKey(req.user.id));
+    await cacheDel(cacheKey(req.user.id));
     res.status(201).json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -108,7 +122,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     if (error) return res.status(400).json({ message: error.message });
 
-    await redis.del(cacheKey(req.user.id));
+    await cacheDel(cacheKey(req.user.id));
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -125,7 +139,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     if (error) return res.status(400).json({ message: error.message });
 
-    await redis.del(cacheKey(req.user.id));
+    await cacheDel(cacheKey(req.user.id));
     res.json({ message: 'Todo deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
