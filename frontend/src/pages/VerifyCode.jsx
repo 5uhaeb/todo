@@ -30,6 +30,15 @@ export default function VerifyCode() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const provider = data.user?.app_metadata?.provider;
+      if (provider && provider !== 'email') {
+        navigate('/dashboard', { replace: true });
+      }
+    });
+  }, [navigate]);
+
   // If they refresh and lose state, let them type the email manually.
   useEffect(() => {
     if (!email) setInfo('Enter the email you signed up with, then the 6-digit code we sent.');
