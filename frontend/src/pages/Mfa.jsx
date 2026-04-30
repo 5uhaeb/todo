@@ -59,11 +59,7 @@ export default function Mfa() {
         return;
       }
 
-      const enrollment = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: 'Taskflow local',
-      });
-      if (enrollment.error) throw enrollment.error;
+      const enrollment = await enrollTotpFactor();
 
       setFactorId(enrollment.data.id);
       setQr(enrollment.data.totp.qr_code);
@@ -73,6 +69,29 @@ export default function Mfa() {
       setError(err.message || 'Could not prepare MFA.');
       setMode('error');
     }
+  }
+
+  async function enrollTotpFactor() {
+    const baseName = 'Taskflow local';
+    const enrollment = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: baseName,
+    });
+
+    if (!enrollment.error) return enrollment;
+
+    const message = enrollment.error.message || '';
+    if (!message.toLowerCase().includes('friendly name')) {
+      throw enrollment.error;
+    }
+
+    const retry = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: `${baseName} ${Date.now()}`,
+    });
+
+    if (retry.error) throw retry.error;
+    return retry;
   }
 
   async function verifyCode(e) {
