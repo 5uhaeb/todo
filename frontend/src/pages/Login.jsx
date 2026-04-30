@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 import ThemeToggle from '../components/ThemeToggle.jsx';
 import { getPostAuthRedirectPath } from '../auth/mfa.js';
+import { getAuthRedirectUrl } from '../auth/redirect.js';
 
 export default function Login() {
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
@@ -31,7 +32,7 @@ export default function Login() {
           email: cleanEmail,
           password,
           options: {
-            emailRedirectTo: window.location.origin + '/auth/callback',
+            emailRedirectTo: getAuthRedirectUrl(),
           },
         });
         if (error) {
@@ -73,7 +74,7 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: getAuthRedirectUrl(),
         },
       });
       if (error) {
