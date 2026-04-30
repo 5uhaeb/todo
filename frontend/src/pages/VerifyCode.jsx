@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 import ThemeToggle from '../components/ThemeToggle.jsx';
+import { getPostAuthRedirectPath } from '../auth/mfa.js';
 
 const OTP_LENGTH = 8;
 
@@ -35,13 +36,13 @@ export default function VerifyCode() {
   useEffect(() => {
     if (verifyType === 'signup') return;
 
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       const provider = data.user?.app_metadata?.provider;
       if (provider && provider !== 'email') {
-        navigate('/dashboard', { replace: true });
+        navigate(await getPostAuthRedirectPath(), { replace: true });
       }
     });
-  }, [navigate]);
+  }, [navigate, verifyType]);
 
   // If they refresh and lose state, let them type the email manually.
   useEffect(() => {
@@ -71,7 +72,7 @@ export default function VerifyCode() {
         } catch (e) {
           // ignore storage failures
         }
-        navigate('/dashboard');
+        navigate(await getPostAuthRedirectPath());
       } else {
         // Some Supabase setups return user but no session if confirmation
         // is configured differently. Send them to sign-in either way.

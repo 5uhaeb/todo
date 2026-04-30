@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 import api from '../api/axios';
 import ThemeToggle from '../components/ThemeToggle.jsx';
+import { requiresLocalMfaVerification } from '../auth/mfa.js';
 
 export default function Dashboard() {
   const [session, setSession] = useState(null);
@@ -21,27 +22,46 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  const getHeaders = useCallback(() => {
-    if (!session) return {};
-    return { Authorization: `Bearer ${session.access_token}` };
-  }, [session]);
+  const refetchTodos = useCallback(async () => {
+    const res = await api.get('/todos');
+    setTodos(res.data.todos || []);
+  }, []);
 
-  useEffect(() => { init(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    init();
+  }, []);
+
+  useEffect(() => {
+    refetchTodos();
+    const id = setInterval(refetchTodos, 1000);
+    return () => clearInterval(id);
+  }, [refetchTodos]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      refetchTodos();
+    };
+
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refetchTodos]);
 
   async function init() {
     setLoading(true);
     try {
       const { data } = await supabase.auth.getSession();
       if (!data.session) { navigate('/'); return; }
+
+      if (await requiresLocalMfaVerification()) {
+        navigate('/mfa', { replace: true });
+        return;
+      }
+
       setSession(data.session);
 
-      const headers = { Authorization: `Bearer ${data.session.access_token}` };
-      const [me, todoRes] = await Promise.all([
-        api.get('/auth/me', { headers }),
-        api.get('/todos', { headers })
-      ]);
+      const { data: me } = await api.get('/auth/me');
       setProfile(me.data.profile);
-      setTodos(todoRes.data.todos || []);
+      await refetchTodos();
     } catch (err) {
       console.error('Init error:', err);
     } finally {
@@ -54,11 +74,11 @@ export default function Dashboard() {
     if (!title.trim()) return;
     setAdding(true);
     try {
-      await api.post('/todos', { title, priority }, { headers: getHeaders() });
+      await api.post('/todos', { title, priority });
       setTitle('');
       setPriority('normal');
+      await refetchTodos();
       showToast('Task added');
-      init();
     } catch (error) {
       showToast(error.response?.data?.message || 'Could not create task', 'error');
     } finally {
@@ -68,9 +88,9 @@ export default function Dashboard() {
 
   async function toggleTodo(todo) {
     try {
-      await api.put(`/todos/${todo.id}`, { completed: !todo.completed }, { headers: getHeaders() });
+      await api.put(`/todos/${todo.id}`, { completed: !todo.completed });
+      await refetchTodos();
       showToast(todo.completed ? 'Task reopened' : 'Task completed');
-      init();
     } catch (err) {
       showToast('Could not update task', 'error');
     }
@@ -78,9 +98,9 @@ export default function Dashboard() {
 
   async function deleteTodo(id) {
     try {
-      await api.delete(`/todos/${id}`, { headers: getHeaders() });
+      await api.delete(`/todos/${id}`);
+      await refetchTodos();
       showToast('Task deleted');
-      init();
     } catch (err) {
       showToast('Could not delete task', 'error');
     }
@@ -88,7 +108,7 @@ export default function Dashboard() {
 
   async function upgradePremium() {
     try {
-      const { data } = await api.post('/payments/create-order', {}, { headers: getHeaders() });
+      const { data } = await api.post('/payments/create-order', {});
       const options = {
         key: data.key,
         amount: data.order.amount,
@@ -102,7 +122,7 @@ export default function Dashboard() {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature
-            }, { headers: getHeaders() });
+            });
             showToast('Premium activated');
             init();
           } catch (error) {

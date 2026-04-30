@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
+import { getPostAuthRedirectPath } from '../auth/mfa.js';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -15,8 +16,8 @@ export default function AuthCallback() {
     let redirectTimer;
     let authSubscription;
 
-    function goToDashboard() {
-      navigate('/dashboard', { replace: true });
+    async function goToPostAuthRoute() {
+      navigate(await getPostAuthRedirectPath(), { replace: true });
     }
 
     function fail(message, err) {
@@ -43,14 +44,14 @@ export default function AuthCallback() {
 
       if (data?.session) {
         window.history.replaceState({}, document.title, '/auth/callback');
-        goToDashboard();
+        await goToPostAuthRoute();
         return;
       }
 
-      const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
           window.history.replaceState({}, document.title, '/auth/callback');
-          goToDashboard();
+          await goToPostAuthRoute();
         }
       });
       authSubscription = listener.subscription;

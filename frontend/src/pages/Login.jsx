@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 import ThemeToggle from '../components/ThemeToggle.jsx';
+import { getPostAuthRedirectPath } from '../auth/mfa.js';
 
 export default function Login() {
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
@@ -56,7 +57,7 @@ export default function Login() {
           setError(error.message);
           return;
         }
-        navigate('/dashboard');
+        navigate(await getPostAuthRedirectPath());
       }
     } catch (err) {
       setError(err.message || 'Something went wrong.');
