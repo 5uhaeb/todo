@@ -1,7 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import OAuthConsent from './pages/OAuthConsent';
 import VerifyCode from './pages/VerifyCode';
 import AuthCallback from './pages/AuthCallback';
 import Mfa from './pages/Mfa';
@@ -15,7 +14,7 @@ export default function App() {
         <Route path="/mfa" element={<Mfa />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/oauth/consent" element={<OAuthConsent />} />
+        <Route path="/oauth/consent" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
