@@ -32,19 +32,20 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    refetchTodos();
-    const id = setInterval(refetchTodos, 1000);
+    if (!session) return;
+    const refresh = () => refetchTodos().catch(() => {});
+    const id = setInterval(refresh, 15000);
     return () => clearInterval(id);
-  }, [refetchTodos]);
+  }, [refetchTodos, session]);
 
   useEffect(() => {
     const onFocus = () => {
-      refetchTodos();
+      if (session) refetchTodos().catch(() => {});
     };
 
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [refetchTodos]);
+  }, [refetchTodos, session]);
 
   async function init() {
     setLoading(true);
@@ -60,10 +61,11 @@ export default function Dashboard() {
       setSession(data.session);
 
       const { data: me } = await api.get('/auth/me');
-      setProfile(me.data.profile);
+      setProfile(me.profile);
       await refetchTodos();
     } catch (err) {
       console.error('Init error:', err);
+      showToast(err.response?.data?.message || 'Could not load your tasks. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -108,6 +110,7 @@ export default function Dashboard() {
 
   async function upgradePremium() {
     try {
+      if (!window.Razorpay) throw new Error('Checkout could not load. Please refresh and try again.');
       const { data } = await api.post('/payments/create-order', {});
       const options = {
         key: data.key,
@@ -134,7 +137,7 @@ export default function Dashboard() {
       const razor = new window.Razorpay(options);
       razor.open();
     } catch (err) {
-      showToast('Could not create order', 'error');
+      showToast(err.response?.data?.message || err.message || 'Could not create order', 'error');
     }
   }
 

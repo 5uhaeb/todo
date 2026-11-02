@@ -10,7 +10,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       .from('profiles')
       .select('*')
       .eq('id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       return res.status(400).json({ message: error.message });
@@ -19,16 +19,20 @@ router.get('/me', authMiddleware, async (req, res) => {
     if (!profile) {
       const { data: inserted, error: insertError } = await supabaseAdmin
         .from('profiles')
-        .insert({
+        .upsert({
           id: req.user.id,
           email: req.user.email,
           role: 'free'
-        })
+        }, { onConflict: 'id', ignoreDuplicates: true })
         .select()
-        .single();
+        .maybeSingle();
 
       if (insertError) return res.status(400).json({ message: insertError.message });
-      return res.json({ user: req.user, profile: inserted, created: true });
+      if (inserted) return res.json({ user: req.user, profile: inserted, created: true });
+      const { data: existing, error: existingError } = await supabaseAdmin
+        .from('profiles').select('*').eq('id', req.user.id).single();
+      if (existingError) return res.status(500).json({ message: 'Could not load profile' });
+      return res.json({ user: req.user, profile: existing, created: false });
     }
 
     res.json({ user: req.user, profile, created: false });

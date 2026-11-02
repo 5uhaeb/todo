@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { supabase } from '../supabase.js';
 
+const configuredUrl = import.meta.env.VITE_API_URL;
+const mixedContent = window.location.protocol === 'https:' && configuredUrl?.startsWith('http:');
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL
+  baseURL: mixedContent ? '/api' : configuredUrl || '/api',
+  timeout: 20000,
 });
 
 api.interceptors.request.use(async (config) => {

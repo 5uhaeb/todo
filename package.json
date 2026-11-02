@@ -1,0 +1,13 @@
+{
+  "name": "taskflow",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/payment.test.mjs",
+    "test:integration": "node tests/integration.mjs",
+    "build": "npm --prefix frontend run build"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.js';
 import { getPostAuthRedirectPath } from '../auth/mfa.js';
@@ -6,67 +6,46 @@ import { getPostAuthRedirectPath } from '../auth/mfa.js';
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
-  const hasRun = useRef(false);
 
   useEffect(() => {
-    if (hasRun.current) return;
-    hasRun.current = true;
-
-    let isMounted = true;
-    let redirectTimer;
-    let authSubscription;
-
-    async function goToPostAuthRoute() {
-      navigate(await getPostAuthRedirectPath(), { replace: true });
-    }
-
-    function fail(message, err) {
-      if (err) console.error('OAuth callback failed', err);
-      if (isMounted) setError(message);
-      redirectTimer = setTimeout(() => navigate('/', { replace: true }), 2200);
-    }
-
-    async function run() {
-      const search = new URLSearchParams(window.location.search);
-      const errorParam = search.get('error');
-      const errorDescription = search.get('error_description');
-
-      if (errorParam || errorDescription) {
-        fail(errorDescription || errorParam || 'OAuth sign-in failed.');
-        return;
-      }
-
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) {
-        fail(sessionError.message || 'Could not load session.', sessionError);
-        return;
-      }
-
-      if (data?.session) {
+    let active = true;
+    const timers = new Set();
+    const schedule = (fn, ms = 0) => {
+      const timer = setTimeout(() => { timers.delete(timer); if (active) fn(); }, ms);
+      timers.add(timer);
+    };
+    const fail = message => { if (active) setError(message); };
+    const finish = async () => {
+      try {
+        const path = await getPostAuthRedirectPath();
+        if (!active) return;
+        for (const timer of timers) clearTimeout(timer);
         window.history.replaceState({}, document.title, '/auth/callback');
-        await goToPostAuthRoute();
-        return;
-      }
-
-      const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-          window.history.replaceState({}, document.title, '/auth/callback');
-          await goToPostAuthRoute();
-        }
-      });
-      authSubscription = listener.subscription;
-
-      redirectTimer = setTimeout(() => {
-        fail('Sign-in did not create a session. Please try again.');
-      }, 3500);
+        navigate(path, { replace: true });
+      } catch (err) { fail(err.message || 'Could not finish sign-in.'); }
+    };
+    const search = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const authError = search.get('error_description') || hash.get('error_description') ||
+      search.get('error') || hash.get('error');
+    if (authError) {
+      fail(authError);
+      return () => { active = false; };
     }
-
-    run();
-
+    // Keep Supabase API calls outside its synchronous auth event callback.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && ['SIGNED_IN', 'INITIAL_SESSION'].includes(event)) schedule(finish);
+    });
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) fail(error.message);
+      else if (data.session) schedule(finish);
+    }).catch(err => fail(err.message));
+    schedule(() => fail('Sign-in did not create a session. Please return to sign in and try again.'), 15000);
     return () => {
-      isMounted = false;
-      if (redirectTimer) clearTimeout(redirectTimer);
-      if (authSubscription) authSubscription.unsubscribe();
+      active = false;
+      for (const timer of timers) clearTimeout(timer);
+      listener.subscription.unsubscribe();
     };
   }, [navigate]);
 
@@ -79,6 +58,7 @@ export default function AuthCallback() {
           <>
             <h2 style={{ marginBottom: 8 }}>Sign-in failed</h2>
             <p>{error}</p>
+            <a href="/" className="btn btn-primary" style={{ marginTop: 16 }}>Return to sign in</a>
           </>
         ) : (
           <>

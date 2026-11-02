@@ -4,6 +4,19 @@ import { supabaseAdmin } from '../utils/supabase.js';
 import redis from '../utils/redis.js';
 
 const router = express.Router();
+const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+router.param('id', (req, res, next, id) => {
+  if (!validId.test(id)) return res.status(400).json({ message: 'Invalid task ID' });
+  next();
+});
+function invalidTask(body, partial = false) {
+  if ((!partial || body.title !== undefined) &&
+      (typeof body.title !== 'string' || !body.title.trim() || body.title.trim().length > 500)) return 'Title must contain 1 to 500 characters';
+  if (body.priority !== undefined && !['low', 'normal', 'high'].includes(body.priority)) return 'Invalid priority';
+  if (body.completed !== undefined && typeof body.completed !== 'boolean') return 'Completed must be a boolean';
+  if (partial && !['title', 'priority', 'completed'].some(key => body[key] !== undefined)) return 'No task changes supplied';
+  return null;
+}
 
 function cacheKey(userId) {
   return `todos:${userId}`;
@@ -38,7 +51,7 @@ router.get('/', authMiddleware, async (req, res) => {
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
 
-    if (error) return res.status(400).json({ message: error.message });
+    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
 
     await cacheSet(key, JSON.stringify(data));
     res.json({ source: 'db', todos: data });
@@ -51,25 +64,26 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const { title, priority = 'normal' } = req.body;
 
-    if (!title?.trim()) {
-      return res.status(400).json({ message: 'Title is required' });
-    }
+    const invalid = invalidTask(req.body);
+    if (invalid) return res.status(400).json({ message: invalid });
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('id', req.user.id)
       .single();
 
+    if (profileError) return res.status(500).json({ message: 'Could not check account plan' });
     if (profile?.role !== 'premium' && priority === 'high') {
       return res.status(403).json({ message: 'High priority is premium only' });
     }
 
-    const { count } = await supabaseAdmin
+    const { count, error: countError } = await supabaseAdmin
       .from('todos')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', req.user.id);
 
+    if (countError) return res.status(500).json({ message: 'Could not check task limit' });
     if (profile?.role !== 'premium' && count >= 10) {
       return res.status(403).json({ message: 'Free users can only create 10 tasks' });
     }
@@ -78,13 +92,13 @@ router.post('/', authMiddleware, async (req, res) => {
       .from('todos')
       .insert({
         user_id: req.user.id,
-        title,
+        title: title.trim(),
         priority
       })
       .select()
       .single();
 
-    if (error) return res.status(400).json({ message: error.message });
+    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
 
     await cacheDel(cacheKey(req.user.id));
     res.status(201).json(data);
@@ -96,19 +110,22 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { title, completed, priority } = req.body;
+    const invalid = invalidTask(req.body, true);
+    if (invalid) return res.status(400).json({ message: invalid });
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('id', req.user.id)
       .single();
 
+    if (profileError) return res.status(500).json({ message: 'Could not check account plan' });
     if (priority === 'high' && profile?.role !== 'premium') {
       return res.status(403).json({ message: 'High priority is premium only' });
     }
 
     const updateData = {};
-    if (title !== undefined) updateData.title = title;
+    if (title !== undefined) updateData.title = title.trim();
     if (completed !== undefined) updateData.completed = completed;
     if (priority !== undefined) updateData.priority = priority;
 
@@ -120,7 +137,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
       .select()
       .single();
 
-    if (error) return res.status(400).json({ message: error.message });
+    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
 
     await cacheDel(cacheKey(req.user.id));
     res.json(data);
@@ -137,7 +154,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       .eq('id', req.params.id)
       .eq('user_id', req.user.id);
 
-    if (error) return res.status(400).json({ message: error.message });
+    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
 
     await cacheDel(cacheKey(req.user.id));
     res.json({ message: 'Todo deleted' });

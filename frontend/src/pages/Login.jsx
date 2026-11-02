@@ -26,7 +26,7 @@ export default function Login() {
       if (isSignUp) {
         await supabase.auth.signOut();
 
-        // Sign up. Supabase sends an email containing a 6-digit code
+        // Sign up. Supabase sends an email containing an 8-digit code
         // (provided the "Confirm signup" email template exposes {{ .Token }}).
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
@@ -41,6 +41,10 @@ export default function Login() {
         }
         if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
           setError('An account already exists for this email. Please sign in instead.');
+          return;
+        }
+        if (data?.session) {
+          navigate(await getPostAuthRedirectPath());
           return;
         }
         try {

@@ -7,6 +7,9 @@ const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const redis = new Redis(redisUrl, {
   maxRetriesPerRequest: 3,
+  enableOfflineQueue: false,
+  connectTimeout: 2000,
+  commandTimeout: 2000,
   retryStrategy(times) {
     if (times > 5) {
       console.error('Redis: Max retries reached. Giving up.');

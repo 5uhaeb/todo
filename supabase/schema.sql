@@ -57,3 +57,8 @@ create policy "todos_delete_own"
 on public.todos
 for delete
 using (auth.uid() = user_id);
+
+-- API owns writes; authenticated clients cannot self-upgrade or bypass task limits.
+revoke insert, update, delete on public.profiles, public.todos from anon, authenticated;
+grant select on public.profiles, public.todos to authenticated;
+grant all on public.profiles, public.todos to service_role;
