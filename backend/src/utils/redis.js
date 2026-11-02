@@ -11,12 +11,9 @@ const redis = new Redis(redisUrl, {
   connectTimeout: 2000,
   commandTimeout: 2000,
   retryStrategy(times) {
-    if (times > 5) {
-      console.error('Redis: Max retries reached. Giving up.');
-      return null;
-    }
-    const delay = Math.min(times * 200, 2000);
-    return delay;
+    // Keep recovering in the background after a cache restart. Commands fail
+    // immediately while disconnected so API requests still use the database.
+    return Math.min(500 * 2 ** Math.min(times - 1, 6), 30000);
   },
   reconnectOnError(err) {
     const targetErrors = ['READONLY', 'ECONNRESET'];
