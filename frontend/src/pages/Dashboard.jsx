@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabase.js';
+import { authClient } from '../auth/client.js';
 import api from '../api/axios';
 import ThemeToggle from '../components/ThemeToggle.jsx';
-import { requiresLocalMfaVerification } from '../auth/mfa.js';
+
 
 export default function Dashboard() {
   const [session, setSession] = useState(null);
@@ -23,8 +23,14 @@ export default function Dashboard() {
   }, []);
 
   const refetchTodos = useCallback(async () => {
-    const res = await api.get('/todos');
-    setTodos(res.data.todos || []);
+    const rows = [];
+    for (let offset = 0; ; offset += 500) {
+      const res = await api.get('/todos', { params: { offset } });
+      const page = res.data.todos || [];
+      rows.push(...page);
+      if (page.length < 500) break;
+    }
+    setTodos([...new Map(rows.map(task => [task.id, task])).values()]);
   }, []);
 
   useEffect(() => {
@@ -50,13 +56,8 @@ export default function Dashboard() {
   async function init() {
     setLoading(true);
     try {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await authClient.auth.getSession();
       if (!data.session) { navigate('/'); return; }
-
-      if (await requiresLocalMfaVerification()) {
-        navigate('/mfa', { replace: true });
-        return;
-      }
 
       setSession(data.session);
 
@@ -142,7 +143,7 @@ export default function Dashboard() {
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await authClient.auth.signOut();
     navigate('/');
   }
 
@@ -187,6 +188,7 @@ export default function Dashboard() {
           <span className={`badge ${isPremium ? 'badge-premium' : 'badge-free'}`}>
             {isPremium ? 'Premium' : 'Free'}
           </span>
+          <button className="btn btn-sm" onClick={() => navigate('/account')}>Account</button>
           <ThemeToggle />
           <button id="logout-btn" className="btn btn-sm" onClick={logout}>
             <IconLogout /> Logout

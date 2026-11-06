@@ -1,166 +1,138 @@
-import express from 'express';
-import { authMiddleware } from '../middleware/auth.js';
-import { supabaseAdmin } from '../utils/supabase.js';
-import redis from '../utils/redis.js';
-
+import express from "express";
+import { randomUUID } from "node:crypto";
+import { authMiddleware } from "../middleware/auth.js";
+import { one, query } from "../utils/drivebase.js";
 const router = express.Router();
-const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-router.param('id', (req, res, next, id) => {
-  if (!validId.test(id)) return res.status(400).json({ message: 'Invalid task ID' });
-  next();
-});
-function invalidTask(body, partial = false) {
-  if ((!partial || body.title !== undefined) &&
-      (typeof body.title !== 'string' || !body.title.trim() || body.title.trim().length > 500)) return 'Title must contain 1 to 500 characters';
-  if (body.priority !== undefined && !['low', 'normal', 'high'].includes(body.priority)) return 'Invalid priority';
-  if (body.completed !== undefined && typeof body.completed !== 'boolean') return 'Completed must be a boolean';
-  if (partial && !['title', 'priority', 'completed'].some(key => body[key] !== undefined)) return 'No task changes supplied';
-  return null;
-}
-
-function cacheKey(userId) {
-  return `todos:${userId}`;
-}
-
-// Cache helpers; never fail the request because Redis is unavailable.
-async function cacheGet(key) {
-  try { return await redis.get(key); }
-  catch (err) { console.warn('redis.get failed, falling through to DB:', err.message); return null; }
-}
-async function cacheSet(key, value, ttlSec = 60) {
-  try { await redis.set(key, value, 'EX', ttlSec); }
-  catch (err) { console.warn('redis.set failed (ignored):', err.message); }
-}
-async function cacheDel(key) {
-  try { await redis.del(key); }
-  catch (err) { console.warn('redis.del failed (ignored):', err.message); }
-}
-
-router.get('/', authMiddleware, async (req, res) => {
+router.use(authMiddleware);
+const validId =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+router.param("id", (req, res, next, id) =>
+  validId.test(id)
+    ? next()
+    : res.status(400).json({ message: "Invalid task ID" }),
+);
+const route = (handler) => async (req, res, next) => {
   try {
-    const key = cacheKey(req.user.id);
-    const cached = await cacheGet(key);
-
-    if (cached) {
-      return res.json({ source: 'cache', todos: JSON.parse(cached) });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('todos')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
-
-    await cacheSet(key, JSON.stringify(data));
-    res.json({ source: 'db', todos: data });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    await handler(req, res);
+  } catch (e) {
+    next(e);
   }
-});
-
-router.post('/', authMiddleware, async (req, res) => {
-  try {
-    const { title, priority = 'normal' } = req.body;
-
-    const invalid = invalidTask(req.body);
-    if (invalid) return res.status(400).json({ message: invalid });
-
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', req.user.id)
-      .single();
-
-    if (profileError) return res.status(500).json({ message: 'Could not check account plan' });
-    if (profile?.role !== 'premium' && priority === 'high') {
-      return res.status(403).json({ message: 'High priority is premium only' });
-    }
-
-    const { count, error: countError } = await supabaseAdmin
-      .from('todos')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', req.user.id);
-
-    if (countError) return res.status(500).json({ message: 'Could not check task limit' });
-    if (profile?.role !== 'premium' && count >= 10) {
-      return res.status(403).json({ message: 'Free users can only create 10 tasks' });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('todos')
-      .insert({
-        user_id: req.user.id,
-        title: title.trim(),
-        priority
-      })
-      .select()
-      .single();
-
-    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
-
-    await cacheDel(cacheKey(req.user.id));
-    res.status(201).json(data);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-router.put('/:id', authMiddleware, async (req, res) => {
-  try {
-    const { title, completed, priority } = req.body;
-    const invalid = invalidTask(req.body, true);
-    if (invalid) return res.status(400).json({ message: invalid });
-
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', req.user.id)
-      .single();
-
-    if (profileError) return res.status(500).json({ message: 'Could not check account plan' });
-    if (priority === 'high' && profile?.role !== 'premium') {
-      return res.status(403).json({ message: 'High priority is premium only' });
-    }
-
-    const updateData = {};
-    if (title !== undefined) updateData.title = title.trim();
-    if (completed !== undefined) updateData.completed = completed;
-    if (priority !== undefined) updateData.priority = priority;
-
-    const { data, error } = await supabaseAdmin
-      .from('todos')
-      .update(updateData)
-      .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
-      .select()
-      .single();
-
-    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
-
-    await cacheDel(cacheKey(req.user.id));
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-router.delete('/:id', authMiddleware, async (req, res) => {
-  try {
-    const { error } = await supabaseAdmin
-      .from('todos')
-      .delete()
-      .eq('id', req.params.id)
-      .eq('user_id', req.user.id);
-
-    if (error) return res.status(error.code === '23514' && /premium|10 tasks/.test(error.message) ? 403 : 400).json({ message: error.message });
-
-    await cacheDel(cacheKey(req.user.id));
-    res.json({ message: 'Todo deleted' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
+};
+const task = (row) => row && { ...row, completed: Boolean(row.completed) };
+function invalid(body, partial = false) {
+  if (
+    (!partial || body.title !== undefined) &&
+    (typeof body.title !== "string" ||
+      !body.title.trim() ||
+      body.title.trim().length > 500)
+  )
+    return "Title must contain 1 to 500 characters";
+  if (
+    body.priority !== undefined &&
+    !["low", "normal", "high"].includes(body.priority)
+  )
+    return "Invalid priority";
+  if (body.completed !== undefined && typeof body.completed !== "boolean")
+    return "Completed must be a boolean";
+  if (
+    partial &&
+    !["title", "priority", "completed"].some((key) => body[key] !== undefined)
+  )
+    return "No task changes supplied";
+}
+router.get(
+  "/",
+  route(async (req, res) => {
+    const offset = Math.max(
+      0,
+      Number.parseInt(req.query.offset || "0", 10) || 0,
+    );
+    const result = await query(
+      "SELECT * FROM todos WHERE user_id=? ORDER BY created_at DESC,id LIMIT 500 OFFSET ?",
+      [req.user.id, offset],
+    );
+    res.json({
+      source: "drivebase",
+      todos: result.rows.map(task),
+      offset,
+      limit: 500,
+    });
+  }),
+);
+router.post(
+  "/",
+  route(async (req, res) => {
+    const error = invalid(req.body);
+    if (error) return res.status(400).json({ message: error });
+    const { title, priority = "normal" } = req.body;
+    // Check the free-account limit in the insertion itself to cover concurrent requests.
+    const row = await one(
+      "INSERT INTO todos(id,user_id,title,completed,priority,created_at) SELECT ?,?,?,0,?,? WHERE EXISTS(SELECT 1 FROM profiles WHERE id=? AND (role='premium' OR (?<>'high' AND (SELECT count(*) FROM todos WHERE user_id=?)<10))) RETURNING *",
+      [
+        randomUUID(),
+        req.user.id,
+        title.trim(),
+        priority,
+        new Date().toISOString(),
+        req.user.id,
+        priority,
+        req.user.id,
+      ],
+    );
+    if (!row)
+      return res
+        .status(403)
+        .json({
+          message:
+            "Free accounts allow 10 tasks. High priority requires premium.",
+        });
+    res.status(201).json(task(row));
+  }),
+);
+router.put(
+  "/:id",
+  route(async (req, res) => {
+    const error = invalid(req.body, true);
+    if (error) return res.status(400).json({ message: error });
+    const profile = await one("SELECT role FROM profiles WHERE id=?", [
+      req.user.id,
+    ]);
+    if (req.body.priority === "high" && profile?.role !== "premium")
+      return res
+        .status(403)
+        .json({ message: "High priority requires premium" });
+    const changes = Object.entries(req.body).filter(([key]) =>
+      ["title", "priority", "completed"].includes(key),
+    );
+    const row = await one(
+      "UPDATE todos SET " +
+        changes.map(([key]) => key + "=?").join(",") +
+        " WHERE id=? AND user_id=? RETURNING *",
+      [
+        ...changes.map(([key, value]) =>
+          key === "title"
+            ? value.trim()
+            : key === "completed"
+              ? Number(value)
+              : value,
+        ),
+        req.params.id,
+        req.user.id,
+      ],
+    );
+    if (!row) return res.status(404).json({ message: "Task not found" });
+    res.json(task(row));
+  }),
+);
+router.delete(
+  "/:id",
+  route(async (req, res) => {
+    const { changes } = await query(
+      "DELETE FROM todos WHERE id=? AND user_id=?",
+      [req.params.id, req.user.id],
+    );
+    if (!changes) return res.status(404).json({ message: "Task not found" });
+    res.json({ message: "Task deleted" });
+  }),
+);
 export default router;

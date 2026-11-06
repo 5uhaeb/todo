@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabase.js';
+import { authClient } from '../auth/client.js';
 import ThemeToggle from '../components/ThemeToggle.jsx';
-import { getPostAuthRedirectPath } from '../auth/mfa.js';
-import { getAuthRedirectUrl } from '../auth/redirect.js';
+
+
 
 export default function Login() {
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
@@ -23,47 +23,9 @@ export default function Login() {
     try {
       const cleanEmail = email.trim().toLowerCase();
 
-      if (isSignUp) {
-        await supabase.auth.signOut();
-
-        // Sign up. Supabase sends an email containing an 8-digit code
-        // (provided the "Confirm signup" email template exposes {{ .Token }}).
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            emailRedirectTo: getAuthRedirectUrl(),
-          },
-        });
-        if (error) {
-          setError(error.message);
-          return;
-        }
-        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          setError('An account already exists for this email. Please sign in instead.');
-          return;
-        }
-        if (data?.session) {
-          navigate(await getPostAuthRedirectPath());
-          return;
-        }
-        try {
-          sessionStorage.setItem('verify_type', 'signup');
-          sessionStorage.setItem('verify_email', cleanEmail);
-          sessionStorage.removeItem('verify_source');
-        } catch (e) {
-          // ignore storage failures
-        }
-        // Move to the code-entry screen. Pass email through location state.
-        navigate('/verify', { state: { email: cleanEmail, verifyType: 'signup' } });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-        if (error) {
-          setError(error.message);
-          return;
-        }
-        navigate(await getPostAuthRedirectPath());
-      }
+      const { error } = await authClient.auth.signInWithPassword({ email: cleanEmail, password });
+      if (error) { setError(error.message); return; }
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Something went wrong.');
     } finally {
@@ -75,10 +37,10 @@ export default function Login() {
     setError('');
     setGoogleLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await authClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: getAuthRedirectUrl(),
+
         },
       });
       if (error) {
@@ -127,7 +89,7 @@ export default function Login() {
             <span className="divider-line" />
           </div>
 
-          <form onSubmit={handleSubmit} className="stack">
+          {isSignUp ? <p>Continue with Google to verify your email and create an account. You can then set a password in Account. Email verification codes are not available yet.</p> : <form onSubmit={handleSubmit} className="stack">
             <div>
               <label htmlFor="login-email" className="label-tag">Email</label>
               <input
@@ -165,7 +127,7 @@ export default function Login() {
             >
               {loading ? 'Working...' : isSignUp ? 'Create account' : 'Sign in'}
             </button>
-          </form>
+          </form>}
 
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <button

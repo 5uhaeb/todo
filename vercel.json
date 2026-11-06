@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://todo-p8zy.onrender.com/api/:path*"
+      "destination": "https://taskflow-drivebase-api.onrender.com/api/:path*"
     },
     {
       "source": "/((?!api(?:/|$)).*)",

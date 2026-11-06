@@ -2,9 +2,9 @@ import express from 'express';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { authMiddleware } from '../middleware/auth.js';
-import { supabaseAdmin } from '../utils/supabase.js';
+import { paymentDatabase } from '../utils/drivebase.js';
 
-export function createPaymentRouter({ gateway, db = supabaseAdmin, secret = process.env.RAZORPAY_KEY_SECRET, key = process.env.RAZORPAY_KEY_ID, authenticate = authMiddleware } = {}) {
+export function createPaymentRouter({ gateway, db = paymentDatabase, secret = process.env.RAZORPAY_KEY_SECRET, key = process.env.RAZORPAY_KEY_ID, authenticate = authMiddleware } = {}) {
   const router = express.Router();
   router.use(authenticate);
   router.use((req, res, next) => {

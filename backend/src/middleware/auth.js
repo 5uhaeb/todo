@@ -1,32 +1,14 @@
-import { supabaseAdmin } from '../utils/supabase.js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
+import { authenticate, publicUser } from "../utils/session.js";
 export async function authMiddleware(req, res, next) {
+  const token = req.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
+  if (!token) return res.status(401).json({ message: "Sign in to continue" });
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Missing token' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-    
-    if (error || !user) {
-      console.error('Supabase auth failed:', error?.message);
-      return res.status(401).json({ message: 'Auth failed: ' + (error?.message || 'No user found') });
-    }
-    
-    req.user = {
-      id: user.id,
-      email: user.email
-    };
-    
+    req.account = await authenticate(token);
+    req.user = publicUser(req.account);
     next();
-  } catch (error) {
-    console.error('Auth Middleware Exception:', error.message);
-    return res.status(401).json({ message: 'Exception: ' + error.message });
+  } catch {
+    res
+      .status(401)
+      .json({ message: "Your session has expired. Please sign in again." });
   }
 }

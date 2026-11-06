@@ -10,6 +10,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({ 
@@ -19,8 +20,8 @@ app.use(cors({
   }, 
   credentials: true 
 }));
-app.use(express.json());
-app.use(morgan('dev'));
+app.use(express.json({ limit: '64kb' }));
+app.use(morgan(':method :url :status :response-time ms', { skip: req => req.originalUrl.startsWith('/api/auth/') }));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Todo backend running' });

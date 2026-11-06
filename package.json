@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/payment.test.mjs",
-    "test:integration": "node tests/integration.mjs",
+    "test": "npm --prefix backend test",
+    "test:integration": "node --test backend/tests/drivebase.test.js",
     "build": "npm --prefix frontend run build"
   },
   "devDependencies": {
